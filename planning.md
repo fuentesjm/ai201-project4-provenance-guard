@@ -1,16 +1,5 @@
 # Provenance Guard — Planning
 
-> Authoritative design spec. This document is written *before* implementation and
-> is the primary context handed to AI code-generation tools in Milestones 3–5.
-> Every number here (weights, thresholds, label text) is a decision, not a
-> placeholder. If you change a number, change it here first.
-
-**Stack:** Python 3.11 · Flask · flask-limiter (rate limiting) · Groq API (LLM
-signal) · python-dotenv · SQLite (persistence). No frontend framework — JSON API
-+ optional minimal HTML.
-
----
-
 ## 1. Problem framing & architecture narrative
 
 Provenance Guard accepts a piece of text, estimates how likely it was AI-generated,
@@ -58,8 +47,6 @@ that misjudged them.
    `upheld` (label overridden/removed) or `rejected` (label stands). Each
    transition logs `appeal_status_changed`, and an upheld appeal also logs
    `label_overridden`.
-
----
 
 ## 2. Detection signals
 
@@ -135,8 +122,6 @@ p = 0.45 * s1 + 0.55 * s2          # AI-likelihood, [0,1]; LLM weighted slightly
 If `s2` is unavailable: `p = s1`, and confidence is capped (§3). Weights live in
 one config constant so they're tunable without touching logic.
 
----
-
 ## 3. Uncertainty representation
 
 **What `p` means:** `p` is the system's estimated probability that the text is
@@ -174,8 +159,6 @@ correctness.
 The thresholds (0.40 / 0.70), weights (0.45 / 0.55), and disagreement cutoff (0.5)
 are all named constants in one config module.
 
----
-
 ## 4. The false-positive problem (and how the system absorbs it)
 
 **Scenario:** A human writer submits a tightly edited, formal essay. It's uniform
@@ -203,8 +186,6 @@ Trace:
 **Design consequences (feed into Milestone 2):** the disagreement override, the
 single-signal cap, and non-committal label wording all exist specifically to make
 false positives *recoverable and honest* rather than *confident and wrong*.
-
----
 
 ## 5. Transparency label design
 
@@ -242,8 +223,6 @@ conclusions."), `both_middling` ("Neither detector found a clear pattern."), or
 > **Review note:** label text deliberately avoids "is" / "was" — always "shows
 > patterns consistent with." Provenance is never asserted as fact.
 
----
-
 ## 6. Anticipated edge cases
 
 1. **Formulaic human writing** (recipes, legal boilerplate, lab reports, résumés):
@@ -263,8 +242,6 @@ conclusions."), `both_middling` ("Neither detector found a clear pattern."), or
    Signal 2): the Groq prompt isolates user text as data and ignores embedded
    instructions; if the model returns non-conforming JSON, treat `s2` as
    unavailable.
-
----
 
 ## Architecture
 
@@ -363,8 +340,6 @@ label_variant, label_text, created_at)`;
 `appeals(id, submission_id, appellant_id, reason, claimed_origin, status,
 reviewer_id, note, created_at, resolved_at)`;
 `audit_log(id, submission_id, appeal_id, event, detail_json, ts)`.
-
----
 
 ## AI Tool Plan
 
