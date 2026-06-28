@@ -14,13 +14,19 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 import db
+import labels
 import scoring
 import signals
 
 _WORD = re.compile(r"\b\w+\b")
 
 app = Flask(__name__)
-limiter = Limiter(get_remote_address, app=app, default_limits=["100 per hour"])
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=[],
+    storage_uri="memory://",
+)
 
 db.init_db()
 
@@ -35,7 +41,7 @@ def health():
 
 
 @app.post("/submit")
-@limiter.limit("30 per minute")
+@limiter.limit("10 per minute;100 per day")
 def submit():
     data = request.get_json(silent=True) or {}
     text = data.get("text")
@@ -55,9 +61,9 @@ def submit():
     # --- Combine into confidence / band (planning.md §3) ------------------
     verdict = scoring.combine(s1["score"], s2["score"], word_count)
 
-    # Label text is finalized in M5; for now the band IS the attribution
-    # category. Exact label wording arrives with the label generator.
-    label = {"variant": verdict["band"], "text": None}
+    # Transparency label (planning.md §5): band picks the variant, confidence
+    # fills the wording.
+    label = labels.make_label(verdict["band"], verdict["confidence"], verdict["reason"])
 
     attribution = {
         "band": verdict["band"],
@@ -90,6 +96,7 @@ def submit():
         "band": verdict["band"],
         "label_variant": label["variant"],
         "label_text": label["text"],
+        "status": "classified",
         "created_at": created_at,
     })
     db.append_audit(
@@ -115,6 +122,63 @@ def submit():
         "confidence": verdict["confidence"],
         "label": label,
         "created_at": created_at,
+    })
+
+
+@app.post("/appeal")
+def appeal():
+    data = request.get_json(silent=True) or {}
+    content_id = data.get("content_id")
+    creator_reasoning = data.get("creator_reasoning")
+
+    if not content_id:
+        return jsonify({"error": "field 'content_id' is required"}), 400
+    if not creator_reasoning or not str(creator_reasoning).strip():
+        return jsonify({"error": "field 'creator_reasoning' is required"}), 400
+
+    submission = db.get_submission(content_id)
+    if not submission:
+        return jsonify({"error": f"no submission found for content_id {content_id}"}), 404
+
+    appeal_id = str(uuid.uuid4())
+    created_at = _now()
+
+    # Record the appeal and move the submission into review.
+    db.insert_appeal({
+        "appeal_id": appeal_id,
+        "content_id": content_id,
+        "appellant_id": submission.get("creator_id"),
+        "reason": creator_reasoning,
+        "claimed_origin": None,
+        "status": "under_review",
+        "reviewer_id": None,
+        "note": None,
+        "created_at": created_at,
+        "resolved_at": None,
+    })
+    db.set_submission_status(content_id, "under_review")
+
+    # Log the appeal alongside the original classification decision.
+    db.append_audit(
+        "appeal_received",
+        content_id=content_id,
+        appeal_id=appeal_id,
+        detail={
+            "status": "under_review",
+            "appeal_reasoning": creator_reasoning,
+            "original_attribution": submission.get("band"),
+            "original_confidence": submission.get("confidence"),
+            "original_signal_1_score": submission.get("s1"),
+            "original_llm_score": submission.get("s2"),
+        },
+        ts=created_at,
+    )
+
+    return jsonify({
+        "message": "Appeal received and queued for review.",
+        "appeal_id": appeal_id,
+        "content_id": content_id,
+        "status": "under_review",
     })
 
 

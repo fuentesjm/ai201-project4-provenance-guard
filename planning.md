@@ -209,29 +209,35 @@ false positives *recoverable and honest* rather than *confident and wrong*.
 ## 5. Transparency label design
 
 Three variants. Each shows: a headline, a plain-English explanation, the confidence
-phrasing, and a contestability note. **Exact text:**
+phrasing, and a contestability note.
 
-**A. High-confidence AI** (`band = Likely AI`, `confidence ≥ 0.6`):
-> ⚠️ **Likely AI-generated.** This text shows strong patterns consistent with
-> AI-generated writing (confidence: high). This is an automated estimate, not
+**Variant selection rule (unambiguous):** the **band** picks the variant
+(`likely_ai` → A, `likely_human` → B, `uncertain` → C). The **confidence word** is
+filled independently from the phrasing map, so the label text changes with the
+confidence score *within* a variant as well as across variants. `{conf}` below is
+the confidence word.
+
+**A. Likely AI** (`band = likely_ai`):
+> ⚠️ **Likely AI-generated.** This text shows patterns consistent with
+> AI-generated writing (confidence: {conf}). This is an automated estimate, not
 > proof. If you wrote this yourself, you can appeal this label.
 
-**B. High-confidence human** (`band = Likely human`, `confidence ≥ 0.6`):
+**B. Likely human** (`band = likely_human`):
 > ✅ **Likely human-written.** This text shows patterns consistent with human
-> writing (confidence: high). This is an automated estimate, not a guarantee of
+> writing (confidence: {conf}). This is an automated estimate, not a guarantee of
 > origin.
 
-**C. Uncertain** (`band = Uncertain`, *or* any result with `confidence < 0.6`):
+**C. Uncertain** (`band = uncertain`):
 > ❓ **Inconclusive.** Our signals disagree or aren't strong enough to call this
-> one (confidence: low). We're not labeling it as AI or human. {reason}
+> one (confidence: {conf}). We're not labeling it as AI or human. {reason}
 
 Where `{reason}` is filled from: `insufficient_signal` ("The text was too short to
 analyze reliably."), `signals_disagree` ("Our two detectors reached different
-conclusions."), or `both_middling` ("Neither detector found a clear pattern.").
+conclusions."), `both_middling` ("Neither detector found a clear pattern."), or
+`single_signal` ("Only one detector was available, so we won't make a strong call.").
 
 **Confidence phrasing map:** `confidence ≥ 0.6` → "high"; `0.3 ≤ confidence < 0.6`
-→ "moderate"; `< 0.3` → "low". (A "Likely AI/human" band with moderate confidence
-uses variant A/B but swaps the confidence word.)
+→ "moderate"; `< 0.3` → "low".
 
 > **Review note:** label text deliberately avoids "is" / "was" — always "shows
 > patterns consistent with." Provenance is never asserted as fact.

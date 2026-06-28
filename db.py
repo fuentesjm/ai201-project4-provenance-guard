@@ -34,6 +34,7 @@ def init_db():
                 band           TEXT,
                 label_variant  TEXT,
                 label_text     TEXT,
+                status         TEXT NOT NULL DEFAULT 'classified',
                 created_at     TEXT NOT NULL
             );
 
@@ -69,10 +70,42 @@ def insert_submission(row):
             """
             INSERT INTO submissions (
                 content_id, creator_id, text, s1, s1_json, s2, s2_rationale,
-                p, confidence, band, label_variant, label_text, created_at
+                p, confidence, band, label_variant, label_text, status, created_at
             ) VALUES (
                 :content_id, :creator_id, :text, :s1, :s1_json, :s2, :s2_rationale,
-                :p, :confidence, :band, :label_variant, :label_text, :created_at
+                :p, :confidence, :band, :label_variant, :label_text, :status, :created_at
+            )
+            """,
+            row,
+        )
+
+
+def get_submission(content_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM submissions WHERE content_id = ?", (content_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def set_submission_status(content_id, status):
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE submissions SET status = ? WHERE content_id = ?",
+            (status, content_id),
+        )
+
+
+def insert_appeal(row):
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO appeals (
+                appeal_id, content_id, appellant_id, reason, claimed_origin,
+                status, reviewer_id, note, created_at, resolved_at
+            ) VALUES (
+                :appeal_id, :content_id, :appellant_id, :reason, :claimed_origin,
+                :status, :reviewer_id, :note, :created_at, :resolved_at
             )
             """,
             row,
